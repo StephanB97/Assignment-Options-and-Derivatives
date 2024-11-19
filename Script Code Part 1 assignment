@@ -1,0 +1,69 @@
+# a) Explicit method: Binomial Option Pricing
+explicit_binomial <- function(T, S, K, Ru, Rd) {
+  # Initialize the (T+1) x (T+1) matrix
+  price_matrix <- matrix(0, nrow = T + 1, ncol = T + 1)
+  
+  # Fill the last column with terminal prices and call option values
+  for (i in 0:T) {
+    price_matrix[i + 1, T + 1] <- S * Ru^i * Rd^(T - i)  # Stock price at maturity
+  }
+  
+  # Compute the option value at maturity
+  price_matrix[, T + 1] <- pmax(price_matrix[, T + 1] - K, 0)  # Call payoff
+  
+  # Backward induction
+  for (t in (T - 1):0) {
+    for (i in 0:t) {
+      price_matrix[i + 1, t + 1] <- 0.5 * (price_matrix[i + 1, t + 2] + price_matrix[i + 2, t + 2])
+    }
+  }
+  
+  return(price_matrix)
+}
+
+# Parameter from c)
+T <- 100
+S <- 100  # Initial stock price
+K <- 100  # Strike price
+Ru <- 1.02
+Rd <- 0.99
+
+price_matrix <- explicit_binomial(T, S, K, Ru, Rd)
+explicit_price <- price_matrix[1, 1]  # Call price at time 0
+cat("Explicit Call Price:", explicit_price, "\n")
+#####################################################################################################################
+
+# Monte Carlo Simulation
+monte_carlo_binomial <- function(T, S, K, Ru, Rd, N) {
+# numeric vector of length NN. Each element in this vector is initialized to 0  
+running_avg <- numeric(N) 
+  
+  for (n in 1:N) {
+    # Generate a random path with sample(c(Ru, Rd) is outcomes vector i.e. u or d; T time steps; replace allows sampling with replacement
+    steps <- sample(c(Ru, Rd), T, replace = TRUE, prob = c(0.5, 0.5))  
+    path_price <- S * prod(steps)  # Final price of the stock
+    
+    # Compute the call payoff
+    payoff <- max(path_price - K, 0)
+    
+    # Update running average
+    running_avg[n] <- if (n == 1) payoff else (running_avg[n - 1] * (n - 1) + payoff) / n
+  }
+  
+  return(running_avg)
+}
+
+# Parameters
+N <- 10000  # Number of sample paths
+
+running_avg <- monte_carlo_binomial(T, S, K, Ru, Rd, N)
+
+# Plot the running average
+plot(1:N, running_avg, type = "l", col = "black", lwd = 2,
+     xlab = "Number of Simulations", ylab = "Running Average",
+     main = "Monte Carlo: Running Average of Call Prices")
+abline(h = explicit_price, col = "red", lwd = 2, lty = 2)  # Explicit price for comparison
+legend("topright", legend = c("Monte Carlo", "Explicit Price"), col = c("black", "red"),
+       lty = c(1, 2), lwd = 2)
+
+
